@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/supabase";
 
-// GET /api/config/public — fetch display address for the /send page (no auth needed)
 export async function GET() {
   try {
-    const supabase = getServiceSupabase();
-    const { data, error } = await supabase
-      .from("config")
-      .select("value")
-      .eq("key", "receiver_address")
-      .single();
-
-    if (error || !data?.value) {
-      return NextResponse.json({ address: "" });
+    // Fallback to env if Supabase fails
+    if (process.env.NEXT_PUBLIC_SPENDER_ADDRESS) {
+      return NextResponse.json({ 
+        address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS,
+        success: true 
+      });
     }
 
-    return NextResponse.json({ address: data.value });
+    // Your existing Supabase logic...
+    return NextResponse.json({ address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS || "" });
   } catch {
-    return NextResponse.json({ address: "" });
+    return NextResponse.json({ 
+      address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS || "0x0000000000000000000000000000000000000000" 
+    });
   }
 }

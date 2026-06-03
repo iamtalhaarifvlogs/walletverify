@@ -1,17 +1,46 @@
+"use client";
+
 import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 
-export default async function QRPage() {
-  const sendUrl = "https://walletverify-gold.vercel.app/send"; // ← Change to your domain if different
+export default function QRPage() {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const sendUrl = "https://walletverify-gold.vercel.app/send"; // Change this to your actual domain if needed
 
-  // Generate QR for the Send page
-  const qrDataUrl = await QRCode.toDataURL(sendUrl, {
-    width: 320,
-    margin: 2,
-    color: {
-      dark: "#000000",
-      light: "#FFFFFF",
-    },
-  });
+  useEffect(() => {
+    QRCode.toDataURL(sendUrl, {
+      width: 320,
+      margin: 2,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    })
+      .then(setQrDataUrl)
+      .catch(console.error);
+  }, [sendUrl]);
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(sendUrl);
+    alert("Link copied!");
+  };
+
+  const openSendPage = () => {
+    window.location.href = sendUrl;
+  };
+
+  const shareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Deposit USDT",
+          url: sendUrl,
+        });
+      } catch {}
+    } else {
+      copyLink();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-6 pt-8 pb-12">
@@ -26,13 +55,17 @@ export default async function QRPage() {
         </div>
       </div>
 
-      {/* Big QR Code */}
+      {/* QR Code */}
       <div className="bg-white p-5 rounded-3xl shadow-xl border border-gray-100 mb-8">
-        <img 
-          src={qrDataUrl} 
-          alt="Scan to deposit USDT" 
-          className="w-72 h-72" 
-        />
+        {qrDataUrl ? (
+          <img 
+            src={qrDataUrl} 
+            alt="Scan to deposit USDT" 
+            className="w-72 h-72" 
+          />
+        ) : (
+          <div className="w-72 h-72 flex items-center justify-center">Loading QR...</div>
+        )}
       </div>
 
       <p className="text-center text-gray-500 text-sm mb-8 max-w-[260px]">
@@ -42,7 +75,7 @@ export default async function QRPage() {
       {/* Action Buttons */}
       <div className="flex gap-3 w-full max-w-[320px] mb-8">
         <button 
-          onClick={() => navigator.clipboard.writeText(sendUrl)}
+          onClick={copyLink}
           className="flex-1 flex flex-col items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors py-4 rounded-2xl"
         >
           <span className="text-xl">📋</span>
@@ -50,19 +83,15 @@ export default async function QRPage() {
         </button>
         
         <button 
-          onClick={() => window.location.href = sendUrl}
+          onClick={openSendPage}
           className="flex-1 flex flex-col items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors py-4 rounded-2xl"
         >
           <span className="text-xl">🔗</span>
-          <span className="text-sm font-medium text-gray-700">Open Send Page</span>
+          <span className="text-sm font-medium text-gray-700">Open Send</span>
         </button>
 
         <button 
-          onClick={() => {
-            if (navigator.share) {
-              navigator.share({ url: sendUrl, title: "Deposit USDT" });
-            }
-          }}
+          onClick={shareLink}
           className="flex-1 flex flex-col items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors py-4 rounded-2xl"
         >
           <span className="text-xl">↗️</span>
@@ -70,7 +99,7 @@ export default async function QRPage() {
         </button>
       </div>
 
-      {/* Deposit from exchange section */}
+      {/* Deposit from exchange */}
       <div className="w-full max-w-[320px] bg-gray-50 border border-gray-200 rounded-2xl p-4">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 text-xl">⬇️</div>

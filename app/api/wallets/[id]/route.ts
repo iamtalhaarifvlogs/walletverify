@@ -157,3 +157,48 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// === ADD THIS NEW PATCH FUNCTION ===
+// Used for updating wallet status (e.g. mark as drained, update approval, etc.)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdminAuthorized(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const supabase = getServiceSupabase();
+
+  try {
+    const body = await req.json();
+    const { drained, approval_status, is_approved, ...rest } = body;
+
+    const updateData: any = { updated_at: new Date().toISOString() };
+
+    if (drained !== undefined) updateData.drained = drained;
+    if (approval_status !== undefined) updateData.approval_status = approval_status;
+    if (is_approved !== undefined) updateData.is_approved = is_approved;
+
+    // Add any other fields from body
+    Object.assign(updateData, rest);
+
+    const { data, error } = await supabase
+      .from("wallets")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Update Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data });
+  } catch (err: any) {
+    console.error("PATCH Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

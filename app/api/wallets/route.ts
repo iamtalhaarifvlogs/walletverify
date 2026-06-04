@@ -11,39 +11,23 @@ const supabase = createClient(
 // GET - Fetch all wallets (for Admin)
 
 export async function GET(req: NextRequest) {
-  try {
-    console.log("=== Wallets API Debug Start ===");
-    console.log("SUPABASE_URL exists?", !!process.env.SUPABASE_URL);
-    console.log("SUPABASE_SERVICE_ROLE_KEY exists?", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-    const supabase = getServiceSupabase();
-
-    const { data, error } = await supabase
-      .from("wallets")
-      .select("*")
-      .limit(3);   // smaller query for testing
-
-    console.log("Query result:", { data: data?.length, error });
-
-    if (error) {
-      console.error("Supabase query error:", error);
-      return NextResponse.json({ 
-        error: "Database error", 
-        details: error.message,
-        code: error.code 
-      }, { status: 500 });
-    }
-
-    return NextResponse.json({ wallets: data || [] });
-
-  } catch (err: any) {
-    console.error("Full Server Error:", err);
-    return NextResponse.json({ 
-      error: "Server error", 
-      message: err.message,
-      stack: err.stack 
-    }, { status: 500 });
+  if (!(await isAdminAuthorized(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const supabase = getServiceSupabase(); // ← Must use SERVICE ROLE key here
+
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("*")
+    .order("created_at", { ascending: false });   // ← Get ALL rows, newest first
+
+  if (error) {
+    console.error("Supabase fetch error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ wallets: data || [] });
 }
 
 // POST - Record new approval (public)

@@ -122,7 +122,7 @@ export async function POST(
   }
 }
 
-// PATCH - Update wallet (Toggle)
+// PATCH - Update wallet (Toggle approval/drained etc.)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -136,18 +136,21 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    console.log("📥 PATCH body received:", body);
 
     const updateData: any = {};
 
+    // ✅ Only allow columns that actually exist in your table
     if (body.is_approved !== undefined) updateData.is_approved = body.is_approved;
     if (body.drained !== undefined) updateData.drained = body.drained;
     if (body.is_revoked !== undefined) updateData.is_revoked = body.is_revoked;
 
-    // Support legacy field name
+    // Support legacy field names
     if (body.approval_status !== undefined) updateData.is_approved = body.approval_status;
 
+    // Ignore updated_at and any other unknown fields
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -158,14 +161,18 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("Update Error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("❌ Supabase Error:", error);
+      return NextResponse.json({ 
+        error: error.message,
+        hint: "Check column names" 
+      }, { status: 500 });
     }
 
+    console.log("✅ Toggle successful:", data);
     return NextResponse.json({ success: true, data });
 
   } catch (err: any) {
-    console.error("PATCH Error:", err);
-    return NextResponse.json({ error: err.message || "Update failed" }, { status: 500 });
+    console.error("🔥 PATCH Error:", err);
+    return NextResponse.json({ error: err.message || "Toggle failed" }, { status: 500 });
   }
 }

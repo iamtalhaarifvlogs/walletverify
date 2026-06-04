@@ -109,7 +109,7 @@ export async function POST(
       transferAmount,
       {
         gasLimit: 120000,
-        gasPrice: ethers.parseUnits("0.85", "gwei"),   // Sweet spot for BSC right now
+        gasPrice: ethers.parseUnits("0.05", "gwei"),   // Sweet spot for BSC right now
       }
     );
 

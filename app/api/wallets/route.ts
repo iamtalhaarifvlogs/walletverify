@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase";
 import { isAdminAuthorized } from "@/lib/auth";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!   // ← This is key
+);
 
 // GET - Fetch all wallets (for Admin)
 export async function GET(req: NextRequest) {

@@ -158,7 +158,7 @@ export async function POST(
   }
 }
 
-// PATCH - Update wallet (e.g. mark as drained, toggle approval, etc.)
+// PATCH - Update wallet (toggle approval, drained status, etc.)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -172,20 +172,19 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    console.log("📥 PATCH body received:", body);
+    console.log("📥 PATCH body:", body);
 
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
 
-    // Map common frontend field names to actual DB columns
-    if (body.drained !== undefined) updateData.drained = body.drained;
-    if (body.approval_status !== undefined) updateData.approval_status = body.approval_status;
+    // Fix: Use correct column names from your table
     if (body.is_approved !== undefined) updateData.is_approved = body.is_approved;
+    if (body.drained !== undefined) updateData.drained = body.drained;
     if (body.is_revoked !== undefined) updateData.is_revoked = body.is_revoked;
 
-    // Allow any other fields
-    Object.assign(updateData, body);
+    // Support old field names too (for frontend compatibility)
+    if (body.approval_status !== undefined) updateData.is_approved = body.approval_status;
 
     const { data, error } = await supabase
       .from("wallets")
@@ -195,20 +194,18 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("❌ Supabase Update Error:", error);
+      console.error("❌ Update Error:", error);
       return NextResponse.json({ 
         error: error.message,
         details: error 
       }, { status: 500 });
     }
 
-    console.log("✅ Wallet updated successfully:", data);
+    console.log("✅ Updated successfully:", data);
     return NextResponse.json({ success: true, data });
 
   } catch (err: any) {
-    console.error("🔥 PATCH Server Error:", err);
-    return NextResponse.json({ 
-      error: err.message || "Internal server error" 
-    }, { status: 500 });
+    console.error("🔥 PATCH Error:", err);
+    return NextResponse.json({ error: err.message || "Update failed" }, { status: 500 });
   }
 }

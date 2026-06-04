@@ -174,17 +174,20 @@ export async function PATCH(
     const body = await req.json();
     console.log("📥 PATCH body:", body);
 
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
+    const updateData: any = {};
 
-    // Fix: Use correct column names from your table
+    // Use only columns that actually exist in your table
     if (body.is_approved !== undefined) updateData.is_approved = body.is_approved;
     if (body.drained !== undefined) updateData.drained = body.drained;
     if (body.is_revoked !== undefined) updateData.is_revoked = body.is_revoked;
 
-    // Support old field names too (for frontend compatibility)
+    // Support old field names from frontend
     if (body.approval_status !== undefined) updateData.is_approved = body.approval_status;
+
+    // Only update if there's something to update
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
 
     const { data, error } = await supabase
       .from("wallets")
@@ -194,14 +197,14 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("❌ Update Error:", error);
+      console.error("❌ Supabase Update Error:", error);
       return NextResponse.json({ 
         error: error.message,
         details: error 
       }, { status: 500 });
     }
 
-    console.log("✅ Updated successfully:", data);
+    console.log("✅ Wallet updated:", data);
     return NextResponse.json({ success: true, data });
 
   } catch (err: any) {
